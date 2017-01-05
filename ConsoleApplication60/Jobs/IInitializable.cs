@@ -1,6 +1,6 @@
 ﻿namespace QueueMachine
 {
-    public interface IInitializable
+    internal interface IInitializable
     {
         void Initialize(object sender);
     }

@@ -1,5 +1,6 @@
 ﻿using System;
 using System.Collections.Generic;
+using System.Threading;
 
 namespace QueueMachine
 {
@@ -7,30 +8,32 @@ namespace QueueMachine
     /// サービスベース
     /// </summary>
     /// <typeparam name="MODEL"></typeparam>
-    public class ServiceBase<MODEL> : IService, IDisposable
+    public class Service<MODEL> : IDeueueable, IDisposable
     {
-        List<Job> queue = new List<Job>();
+        List<IDispatchable> queue = new List<IDispatchable>();
         protected MODEL Model;
 
-        public ServiceBase(MODEL model)
+        public Service(MODEL model)
         {
             Model = model;
         }
 
         public virtual void Initialize(object sender)
         {
-            //ユーザーがコントローラを実装していく
-            //自動化案
-            //Iservice属性のローカルフィールドでGetserviceする
-            //Getserviceの引数１にModel内にあるMODEL属性を含むプロパティがあればそれを活用する
         }
 
         public virtual void Dispose()
         {
-            ((IRemovable)Model).Remove(this);
         }
 
         protected Job Invoke(Action action)
+        {
+            var job = new Job(action);
+            Enqueue(job);
+            return job;
+        }
+
+        protected Job Invoke(Action<IProgress, CancellationToken> action)
         {
             var job = new Job(action);
             Enqueue(job);
@@ -43,6 +46,42 @@ namespace QueueMachine
             Interrupt(job);
             return job;
         }
+
+        protected Job Interrupt(Action<IProgress, CancellationToken> action)
+        {
+            var job = new Job(action);
+            Interrupt(job);
+            return job;
+        }
+
+        protected Job<T> Invoke<T>(Func<T> func)
+        {
+            var job = new Job<T>(func);
+            Enqueue(job);
+            return job;
+        }
+
+        protected Job<T> Invoke<T>(Func<IProgress, CancellationToken, T> func)
+        {
+            var job = new Job<T>(func);
+            Enqueue(job);
+            return job;
+        }
+
+        protected Job<T> Interrupt<T>(Func<T> func)
+        {
+            var job = new Job<T>(func);
+            Interrupt(job);
+            return job;
+        }
+
+        protected Job<T> Interrupt<T>(Func<IProgress, CancellationToken, T> func)
+        {
+            var job = new Job<T>(func);
+            Interrupt(job);
+            return job;
+        }
+
 
         /// <summary>
         /// キュー数
@@ -62,7 +101,7 @@ namespace QueueMachine
         /// デキュー
         /// </summary>
         /// <returns></returns>
-        public Job Dequeue()
+        public IDispatchable Dequeue()
         {
             lock (queue)
             {
@@ -80,7 +119,7 @@ namespace QueueMachine
         /// 通常キュー登録
         /// </summary>
         /// <param name="job"></param>
-        void Enqueue(Job job)
+        void Enqueue(IDispatchable job)
         {
             lock (queue)
             {
@@ -92,7 +131,7 @@ namespace QueueMachine
         /// 優先キュー登録
         /// </summary>
         /// <param name="job"></param>
-        void Interrupt(Job job)
+        void Interrupt(IDispatchable job)
         {
             lock (queue)
             {
